@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>MiniCraft Geology Studio</title>
+<title>MiniCraft Geology Studio - Stable Version</title>
 <style>
 body {
   font-family: Arial, sans-serif;
@@ -12,8 +12,8 @@ body {
 
 canvas {
   border:2px solid black;
-  background:#87ceeb;
-  cursor:crosshair;
+  background:#cce7f2;
+  cursor:pointer;
 }
 
 button {
@@ -25,12 +25,21 @@ button {
   margin-top:10px;
   font-weight:bold;
 }
+
+#instructions {
+  font-size:14px;
+  margin-bottom:10px;
+}
 </style>
 </head>
 
 <body>
 
-<h1>🌎 MiniCraft Geology Studio</h1>
+<h1>MiniCraft Geology Studio</h1>
+
+<div id="instructions">
+Click blocks to build upward. Drag to build continuously.
+</div>
 
 Student Name:
 <input type="text" id="studentName">
@@ -52,19 +61,21 @@ Student Name:
 
 <br><br>
 
-<canvas id="grid" width="900" height="600"></canvas>
+<canvas id="grid" width="900" height="500"></canvas>
 
 <div id="vocabResult"></div>
 
 <script>
+
 const canvas = document.getElementById("grid");
 const ctx = canvas.getContext("2d");
 
 const cols = 15;
 const rows = 10;
-const size = 40;
+const cellSize = 50;
 
 let grid = [];
+let gridTypes = [];
 let currentBlock = "crust";
 let dragging = false;
 let cutaway = false;
@@ -90,33 +101,12 @@ const vocabList = [
 function initGrid(){
   for(let r=0;r<rows;r++){
     grid[r]=[];
+    gridTypes[r]=[];
     for(let c=0;c<cols;c++){
-      grid[r][c]=[];
+      grid[r][c]=0;
+      gridTypes[r][c]=[];
     }
   }
-}
-
-function isoX(c,r){
-  return (c-r)*size/2 + 450;
-}
-
-function isoY(c,r){
-  return (c+r)*size/4 + 100;
-}
-
-function drawCube(c,r,h,color){
-  const x = isoX(c,r);
-  const y = isoY(c,r) - h*20;
-
-  ctx.fillStyle = color;
-  ctx.beginPath();
-  ctx.moveTo(x, y);
-  ctx.lineTo(x+size/2, y+size/4);
-  ctx.lineTo(x, y+size/2);
-  ctx.lineTo(x-size/2, y+size/4);
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
 }
 
 function drawGrid(){
@@ -129,34 +119,19 @@ function drawGrid(){
 
   for(let r=0;r<rows;r++){
     for(let c=0;c<cols;c++){
-      for(let h=0;h<grid[r][c].length;h++){
-        drawCube(c,r,h,colors[grid[r][c][h]]);
+      ctx.strokeStyle = "#aaa";
+      ctx.strokeRect(c*cellSize, r*cellSize, cellSize, cellSize);
+
+      if(grid[r][c] > 0){
+        ctx.fillStyle = gridTypes[r][c][gridTypes[r][c].length-1];
+        ctx.fillRect(c*cellSize+5, r*cellSize+5, cellSize-10, cellSize-10);
+
+        ctx.fillStyle="white";
+        ctx.font="12px Arial";
+        ctx.fillText(grid[r][c], c*cellSize+cellSize/2-5, r*cellSize+cellSize/2+4);
       }
     }
   }
-}
-
-function drawCutaway(){
-  ctx.fillStyle="white";
-  ctx.fillRect(200,100,400,300);
-
-  ctx.fillStyle="#8B4513";
-  ctx.fillRect(200,100,400,40);
-
-  ctx.fillStyle="#CD853F";
-  ctx.fillRect(200,140,400,120);
-
-  ctx.fillStyle="#FF8C00";
-  ctx.fillRect(200,260,400,80);
-
-  ctx.fillStyle="#FFD700";
-  ctx.fillRect(200,340,400,60);
-
-  ctx.fillStyle="black";
-  ctx.fillText("Crust",620,130);
-  ctx.fillText("Mantle",620,200);
-  ctx.fillText("Outer Core",620,300);
-  ctx.fillText("Inner Core",620,360);
 }
 
 function setBlock(type){
@@ -165,32 +140,30 @@ function setBlock(type){
 
 canvas.addEventListener("mousedown", ()=>dragging=true);
 canvas.addEventListener("mouseup", ()=>dragging=false);
-
 canvas.addEventListener("mousemove", function(e){
   if(dragging) placeBlock(e);
 });
-
 canvas.addEventListener("click", placeBlock);
 
 function placeBlock(e){
   if(cutaway) return;
 
   const rect = canvas.getBoundingClientRect();
-  const mx = e.clientX - rect.left;
-  const my = e.clientY - rect.top;
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
 
-  for(let r=0;r<rows;r++){
-    for(let c=0;c<cols;c++){
-      const x = isoX(c,r);
-      const y = isoY(c,r);
+  const col = Math.floor(x / cellSize);
+  const row = Math.floor(y / cellSize);
 
-      if(Math.abs(mx-x)<20 && Math.abs(my-y)<20){
-        if(currentBlock==="eraser"){
-          grid[r][c].pop();
-        } else {
-          grid[r][c].push(currentBlock);
-        }
+  if(row>=0 && row<rows && col>=0 && col<cols){
+    if(currentBlock==="eraser"){
+      if(grid[row][col]>0){
+        grid[row][col]--;
+        gridTypes[row][col].pop();
       }
+    } else {
+      grid[row][col]++;
+      gridTypes[row][col].push(colors[currentBlock]);
     }
   }
 
@@ -200,9 +173,9 @@ function placeBlock(e){
 function simulateCollision(){
   for(let r=0;r<rows;r++){
     for(let c=0;c<cols-1;c++){
-      if(grid[r][c].length>0 && grid[r][c+1].length>0){
-        grid[r][c].push("rock");
-        grid[r][c+1].push("rock");
+      if(grid[r][c]>0 && grid[r][c+1]>0){
+        grid[r][c]++;
+        grid[r][c+1]++;
       }
     }
   }
@@ -212,8 +185,9 @@ function simulateCollision(){
 function simulateDivergent(){
   for(let r=0;r<rows;r++){
     for(let c=0;c<cols;c++){
-      if(grid[r][c].includes("crust")){
-        grid[r][c].push("magma");
+      if(grid[r][c]>0){
+        grid[r][c]++;
+        gridTypes[r][c].push(colors["magma"]);
       }
     }
   }
@@ -223,6 +197,24 @@ function simulateDivergent(){
 function toggleCutaway(){
   cutaway = !cutaway;
   drawGrid();
+}
+
+function drawCutaway(){
+  ctx.fillStyle="#8B4513";
+  ctx.fillRect(200,50,400,40);
+  ctx.fillStyle="#CD853F";
+  ctx.fillRect(200,90,400,150);
+  ctx.fillStyle="#FF8C00";
+  ctx.fillRect(200,240,400,100);
+  ctx.fillStyle="#FFD700";
+  ctx.fillRect(200,340,400,80);
+
+  ctx.fillStyle="black";
+  ctx.font="16px Arial";
+  ctx.fillText("Crust",620,80);
+  ctx.fillText("Mantle",620,160);
+  ctx.fillText("Outer Core",620,280);
+  ctx.fillText("Inner Core",620,390);
 }
 
 function checkVocabulary(){
@@ -237,15 +229,16 @@ function checkVocabulary(){
 
   if(found.length >= 3){
     document.getElementById("vocabResult").innerText =
-      "✅ Strong vocabulary use: " + found.join(", ");
+      "Strong vocabulary use: " + found.join(", ");
   } else {
     document.getElementById("vocabResult").innerText =
-      "⚠ Add more scientific vocabulary.";
+      "Add more scientific vocabulary.";
   }
 }
 
 initGrid();
 drawGrid();
+
 </script>
 
 </body>
