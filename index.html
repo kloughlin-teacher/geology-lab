@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>MiniCraft Geology Studio</title>
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background:#eef3f8;
+  text-align:center;
+}
+
+canvas {
+  border:2px solid black;
+  background:#87ceeb;
+  cursor:crosshair;
+}
+
+button {
+  margin:4px;
+  padding:6px;
+}
+
+#vocabResult {
+  margin-top:10px;
+  font-weight:bold;
+}
+</style>
+</head>
+
+<body>
+
+<h1>🌎 MiniCraft Geology Studio</h1>
+
+Student Name:
+<input type="text" id="studentName">
+
+<br><br>
+
+<button onclick="setBlock('crust')">Crust</button>
+<button onclick="setBlock('mantle')">Mantle</button>
+<button onclick="setBlock('magma')">Magma</button>
+<button onclick="setBlock('rock')">Rock</button>
+<button onclick="setBlock('eraser')">Eraser</button>
+
+<br>
+
+<button onclick="simulateCollision()">Collision Simulation</button>
+<button onclick="simulateDivergent()">Divergent Simulation</button>
+<button onclick="toggleCutaway()">Earth Cutaway Mode</button>
+<button onclick="checkVocabulary()">Check Vocabulary</button>
+
+<br><br>
+
+<canvas id="grid" width="900" height="600"></canvas>
+
+<div id="vocabResult"></div>
+
+<script>
+const canvas = document.getElementById("grid");
+const ctx = canvas.getContext("2d");
+
+const cols = 15;
+const rows = 10;
+const size = 40;
+
+let grid = [];
+let currentBlock = "crust";
+let dragging = false;
+let cutaway = false;
+
+const colors = {
+  crust:"#8B4513",
+  mantle:"#CD853F",
+  magma:"#FF4500",
+  rock:"#808080"
+};
+
+const vocabList = [
+  "subduction",
+  "magma",
+  "crust",
+  "mantle",
+  "erosion",
+  "weathering",
+  "epicenter",
+  "fault"
+];
+
+function initGrid(){
+  for(let r=0;r<rows;r++){
+    grid[r]=[];
+    for(let c=0;c<cols;c++){
+      grid[r][c]=[];
+    }
+  }
+}
+
+function isoX(c,r){
+  return (c-r)*size/2 + 450;
+}
+
+function isoY(c,r){
+  return (c+r)*size/4 + 100;
+}
+
+function drawCube(c,r,h,color){
+  const x = isoX(c,r);
+  const y = isoY(c,r) - h*20;
+
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x+size/2, y+size/4);
+  ctx.lineTo(x, y+size/2);
+  ctx.lineTo(x-size/2, y+size/4);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+}
+
+function drawGrid(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  if(cutaway){
+    drawCutaway();
+    return;
+  }
+
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<cols;c++){
+      for(let h=0;h<grid[r][c].length;h++){
+        drawCube(c,r,h,colors[grid[r][c][h]]);
+      }
+    }
+  }
+}
+
+function drawCutaway(){
+  ctx.fillStyle="white";
+  ctx.fillRect(200,100,400,300);
+
+  ctx.fillStyle="#8B4513";
+  ctx.fillRect(200,100,400,40);
+
+  ctx.fillStyle="#CD853F";
+  ctx.fillRect(200,140,400,120);
+
+  ctx.fillStyle="#FF8C00";
+  ctx.fillRect(200,260,400,80);
+
+  ctx.fillStyle="#FFD700";
+  ctx.fillRect(200,340,400,60);
+
+  ctx.fillStyle="black";
+  ctx.fillText("Crust",620,130);
+  ctx.fillText("Mantle",620,200);
+  ctx.fillText("Outer Core",620,300);
+  ctx.fillText("Inner Core",620,360);
+}
+
+function setBlock(type){
+  currentBlock = type;
+}
+
+canvas.addEventListener("mousedown", ()=>dragging=true);
+canvas.addEventListener("mouseup", ()=>dragging=false);
+
+canvas.addEventListener("mousemove", function(e){
+  if(dragging) placeBlock(e);
+});
+
+canvas.addEventListener("click", placeBlock);
+
+function placeBlock(e){
+  if(cutaway) return;
+
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<cols;c++){
+      const x = isoX(c,r);
+      const y = isoY(c,r);
+
+      if(Math.abs(mx-x)<20 && Math.abs(my-y)<20){
+        if(currentBlock==="eraser"){
+          grid[r][c].pop();
+        } else {
+          grid[r][c].push(currentBlock);
+        }
+      }
+    }
+  }
+
+  drawGrid();
+}
+
+function simulateCollision(){
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<cols-1;c++){
+      if(grid[r][c].length>0 && grid[r][c+1].length>0){
+        grid[r][c].push("rock");
+        grid[r][c+1].push("rock");
+      }
+    }
+  }
+  drawGrid();
+}
+
+function simulateDivergent(){
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<cols;c++){
+      if(grid[r][c].includes("crust")){
+        grid[r][c].push("magma");
+      }
+    }
+  }
+  drawGrid();
+}
+
+function toggleCutaway(){
+  cutaway = !cutaway;
+  drawGrid();
+}
+
+function checkVocabulary(){
+  let text = prompt("Paste your explanation text here:");
+  let found = [];
+
+  vocabList.forEach(v=>{
+    if(text && text.toLowerCase().includes(v)){
+      found.push(v);
+    }
+  });
+
+  if(found.length >= 3){
+    document.getElementById("vocabResult").innerText =
+      "✅ Strong vocabulary use: " + found.join(", ");
+  } else {
+    document.getElementById("vocabResult").innerText =
+      "⚠ Add more scientific vocabulary.";
+  }
+}
+
+initGrid();
+drawGrid();
+</script>
+
+</body>
+</html>
